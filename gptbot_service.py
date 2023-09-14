@@ -103,7 +103,7 @@ def sendYelpPhoto(message):
     # generate photo
     yelp_photo_generation.generate(prefix)
     # send the newly generated tmp.png
-    return discord.File(fp='tmp.png', filename='yelp-review.png')
+    return discord.File(fp='resources/yelp_photo/tmp.png', filename='yelp-review.png')
 
 def sendSets():
     # BUILD THE SETS MESSAGE FROM CONFIG
