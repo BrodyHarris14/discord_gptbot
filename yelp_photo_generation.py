@@ -64,12 +64,12 @@ def generate(prefix):
     review = msg
 
     ######## GENERATE THE IMAGE
-    fnt = ImageFont.truetype('font-yelp.ttf', 20)
-    datefnt = ImageFont.truetype('font-yelp.ttf', 15)
-    locfnt = ImageFont.truetype('font-yelp.ttf', 10)
+    fnt = ImageFont.truetype('resources/yelp_photo/font-yelp.ttf', 20)
+    datefnt = ImageFont.truetype('resources/yelp_photo/font-yelp.ttf', 15)
+    locfnt = ImageFont.truetype('resources/yelp_photo/font-yelp.ttf', 10)
     lines = text_wrap(review, fnt, 500)
     width = 800
-    filename = "tmp.png"
+    filename = "resources/yelp_photo/tmp.png"
     lineheight = fnt.getsize(lines[0])[1] + 3
     height = len(lines) * (lineheight) + 75
     if height < 150:
@@ -137,7 +137,7 @@ def generate(prefix):
             rating = 5
         print(positivity)
         print(rating)
-    rating_img = Image.open("Cropped" + str(rating) + ".PNG")
+    rating_img = Image.open("resources/yelp_photo/Cropped" + str(rating) + ".PNG")
     image.paste(rating_img, (275, 20))
 
     #date
@@ -160,8 +160,8 @@ def generate(prefix):
        facenum = facenum - 100
     faceurl = "https://randomuser.me/api/portraits/med/" + facegender + "/" + str(facenum) + ".jpg"
     print(faceurl)
-    urllib.request.urlretrieve(faceurl, "tmpface")
-    face = Image.open("tmpface").resize((100,100))
+    urllib.request.urlretrieve(faceurl, "resources/yelp_photo/tmpface")
+    face = Image.open("resources/yelp_photo/tmpface").resize((100,100))
     image.paste(face, (25, 20))
 
     image.save(filename)
