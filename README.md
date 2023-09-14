@@ -1,7 +1,3 @@
-SERVICE files are used to simplify the service start and confi
-DISCORD files are used to run long term processes
-CRON files are used for adhoc cron generations
-
 DEPENDENCIES
 ------------
 The DISCORD_listen_generate.py requires:
