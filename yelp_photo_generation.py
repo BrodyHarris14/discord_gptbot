@@ -1,4 +1,4 @@
-import CRON_generate
+import generate
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
@@ -12,7 +12,7 @@ import re
 import urllib.request
 
 def generate(prefix):
-    text = CRON_generate.generate("yelp-review", prefix)
+    text = generate.generate("yelp-review", prefix)
     withlines = text.replace("\\n", "\n")
 
     msg = withlines

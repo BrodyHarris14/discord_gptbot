@@ -8,7 +8,7 @@ from random import randint
 import re
 import json
 from googletrans import Translator
-import PHOTO_yelp
+import yelp_photo_generation
 
 class MyClient(discord.Client):
 
@@ -101,7 +101,7 @@ def sendYelpPhoto(message):
     #get the prefix
     prefix = re.search('\"(.+)\"', message.content).group(1)
     # generate photo
-    PHOTO_yelp.generate(prefix)
+    yelp_photo_generation.generate(prefix)
     # send the newly generated tmp.png
     return discord.File(fp='tmp.png', filename='yelp-review.png')
 
