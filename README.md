@@ -1,6 +1,8 @@
-This shit runs on python 3.6 in the `gptbot_service.py` file.
+* Severly out of date - what is GPT2 anyways? Aren't we on GPT 10 now? *
+
+
+This runs on python 3.6 in the `gptbot_service.py` file.
 It is hard coded to use a specific server.
-idk if you can dockerize this.
 This relies on trained set data that is huge and stored on google drive.
 Each set should be in its own folder under the "checkpoint" folder at this level.
 
@@ -15,3 +17,4 @@ The DISCORD_listen_generate.py requires:
     - pillow                      `pip install pillow`
     - faker                       `pip install faker`
     - (if you want to train) cuda v10.0
+
