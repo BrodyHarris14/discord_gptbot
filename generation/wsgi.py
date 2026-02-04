@@ -1,4 +1,4 @@
-from src.gpt_gen_app import create_app
+from src.app import create_app
 import os
 
 config_name = os.environ.get('APP_SETTINGS', 'DevConfig')
