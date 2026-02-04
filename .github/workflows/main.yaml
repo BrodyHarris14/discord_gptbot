@@ -10,8 +10,11 @@ env:
   IMAGE_TAG: 1.${{ github.run_number }}
 
 jobs:
-  build-and-publish:
+  build-and-publish-gen-app:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./generation
 
     steps:
       # Checkout the repository
