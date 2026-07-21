@@ -204,6 +204,98 @@ python app.py
 # or: gunicorn --workers 4 --bind 0.0.0.0:7070 --timeout 600 app:app
 ```
 
+## Debugging the scripts directly
+
+The Flask layer is just a wrapper — when something goes wrong with generation
+or training, it's almost always easier to run the scripts by hand in the
+legacy conda env than to reason about the subprocess plumbing. Both scripts
+live under `scripts/` and are designed to be runnable standalone.
+
+**Prerequisites:** activate the legacy env and `cd` into `data/` so that
+`checkpoint/` and `models/` resolve the same way they do when ml-runner invokes
+them (the scripts expect `cwd=data/`):
+
+```bash
+conda activate gpt2
+cd /opt/ml-runner/data   # or wherever ML_RUNNER_DATA_DIR points
+```
+
+### generate_sample.py
+
+```
+python ../scripts/generate_sample.py <set> [prefix]
+```
+
+- `<set>` — the trained set name (must exist under `checkpoint/<set>/`).
+- `[prefix]` — optional. If omitted, the prefix is read from **stdin** (this
+  is how ml-runner feeds it in, to avoid shell-escaping issues with
+  quotes/newlines). If provided as `argv[2]`, it's used directly — handy for
+  quick one-liners.
+
+Generated text is written to **stdout**; diagnostics go to **stderr**.
+
+Examples:
+
+```bash
+# Prefix as a command-line arg (fine for simple ASCII prefixes):
+python ../scripts/generate_sample.py trump-tweet ""
+python ../scripts/generate_sample.py news-headline "Breaking:"
+
+# Prefix via stdin (use this for anything with quotes, newlines, etc.):
+echo -n 'Question: what is the meaning of life?' | python ../scripts/generate_sample.py wisdom
+
+# No prefix at all (let the model freewheel):
+echo -n "" | python ../scripts/generate_sample.py trump-tweet
+
+# Capture stdout to a file for inspection:
+python ../scripts/generate_sample.py seinfeld "JERRY" > /tmp/sample.txt
+```
+
+### train_set.py
+
+```
+python ../scripts/train_set.py <run_name> <file_name> <steps>
+```
+
+- `<run_name>` — the set name; checkpoint is saved to `checkpoint/<run_name>/`.
+- `<file_name>` — path to the training dataset (text file). Relative paths
+  resolve against `cwd` (i.e. `data/`), so put datasets under `data/` or pass
+  an absolute path.
+- `<steps>` — integer, number of training steps.
+
+On the first run, the 117M base model is downloaded to `models/117M/` if
+missing. Training logs stream to stdout/stderr; on success the script emits a
+single sample from the freshly trained model so you can confirm it worked.
+
+Examples:
+
+```bash
+# Train a new set from a dataset sitting in data/datasets/:
+python ../scripts/train_set.py trump-tweet datasets/trump-tweets.txt 1000
+
+# Train with an absolute dataset path:
+python ../scripts/train_set.py my-set /data/my-set.txt 500
+
+# Tee the full training log to a file while watching it:
+python ../scripts/train_set.py trump-tweet datasets/trump-tweets.txt 1000 2>&1 | tee /tmp/train.log
+```
+
+### Common debugging tips
+
+- **"Couldn't find that set" / load errors** → check that
+  `data/checkpoint/<set>/` exists and contains the trained checkpoint files
+  (`model-*.data`, `model-*.index`, `model-*.meta`, `checkpoint`).
+- **First run is slow / hangs** → `gpt_2_simple` is downloading the 117M base
+  model into `data/models/117M/`. This is a one-time ~500 MB download.
+- **GPU not being used** → confirm `nvidia-smi` shows the process, and that
+  your TF 1.14 install was the GPU build (`tensorflow-gpu==1.14`) with matching
+  CUDA 10.0 + cuDNN 7.4.
+- **Reproducing an ml-runner job's exact invocation** → check the job's log at
+  `data/logs/<job_id>.log` (or `GET /jobs/<id>/log`); it captures the
+  subprocess's stderr. The exact command ml-runner runs is:
+  `conda run -n gpt2 --no-capture-output python scripts/generate_sample.py <set>`
+  with the prefix sent to stdin and `cwd=data/`.
+
 ## Notes
 
 - The prefix is passed to `generate_sample.py` via **stdin**, not argv, to
