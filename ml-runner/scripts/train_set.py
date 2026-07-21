@@ -111,9 +111,11 @@ def main():
 
     # TrainingArguments: max_steps keeps the same semantics as
     # gpt_2_simple's `steps` (optimization steps, not epochs).
+    # `overwrite_output_dir` was removed from TrainingArguments in recent
+    # transformers versions — we instead write intermediate checkpoints to a
+    # subdirectory and do the final explicit save via model.save_pretrained().
     training_args = TrainingArguments(
-        output_dir=ckpt_dir,
-        overwrite_output_dir=True,
+        output_dir=os.path.join(ckpt_dir, "trainer-output"),
         max_steps=steps,
         per_device_train_batch_size=4,
         warmup_steps=10,
