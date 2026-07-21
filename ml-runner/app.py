@@ -43,13 +43,28 @@ def _ensure_dirs():
 
 
 def _load_config():
-    """Load config.json. Returns (configs_dict, sets_list) or ({}, []) if absent."""
+    """
+    Load config.json. The file is a flat JSON array of set objects, each with
+    a `name` field. Returns (configs_by_name, ordered_names) or ({}, []) if
+    absent / unparseable.
+    """
     if not os.path.isfile(CONFIG_PATH):
         return {}, []
     try:
         with open(CONFIG_PATH) as f:
-            configs = json.load(f)
-        return configs, configs.get("sets", [])
+            sets_list = json.load(f)
+        if not isinstance(sets_list, list):
+            app.logger.warning("config.json is not a JSON array")
+            return {}, []
+        by_name = {}
+        ordered = []
+        for obj in sets_list:
+            name = obj.get("name")
+            if not name:
+                continue
+            by_name[name] = obj
+            ordered.append(name)
+        return by_name, ordered
     except Exception as e:
         app.logger.warning("Could not parse config.json: %s", e)
         return {}, []
@@ -83,12 +98,13 @@ def health():
 
 @app.route("/sets", methods=["GET"])
 def sets():
-    configs, configured = _load_config()
+    configs, ordered = _load_config()
     discovered = _discovered_sets()
-    # Merge: configured sets first (with metadata), then any extras from disk.
-    extra = [s for s in discovered if s not in configured]
+    # Merge: configured sets first (in file order, with metadata), then any
+    # extras found on disk that aren't in the config.
+    extra = [s for s in discovered if s not in configs]
     out = []
-    for name in configured:
+    for name in ordered:
         meta = configs.get(name, {})
         out.append({
             "name": name,

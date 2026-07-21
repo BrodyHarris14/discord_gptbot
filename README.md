@@ -16,7 +16,8 @@ certain child-like charm — this project keeps that alive.
   TensorFlow 1.14 / `gpt_2_simple`, hard-wired to a single Discord server.
   Kept as a reference; not used at runtime. The `config.json` set list and the
   `generate_sample.py` / `train_set.py` scripts were ported from here into
-  `ml-runner/`.
+  `ml-runner/` (with `config.json` cleaned up from a redundant dict+list shape
+  into a flat array of set objects).
 
 ## Quick architecture
 

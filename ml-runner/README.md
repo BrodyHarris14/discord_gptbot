@@ -25,7 +25,7 @@ service over HTTP.
 │      ├── datasets/           ← uploaded training data    │
 │      ├── logs/               ← per-job subprocess logs   │
 │      ├── jobs.db             ← sqlite job tracking       │
-│      └── config.json         ← set list/metadata         │
+│      └── config.json         ← sets (flat array of objects)  │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
         ▲
@@ -199,7 +199,7 @@ ml-runner/
 │   ├── generate_sample.py # ported from legacy/
 │   └── train_set.py       # ported from legacy/
 └── data/
-    ├── config.json        # set list/metadata (seeded from legacy/)
+    ├── config.json        # sets: flat array of set objects (seeded from legacy/)
     ├── checkpoint/        # trained models (created on first train)
     ├── models/            # base GPT-2 117M (downloaded on first use)
     ├── datasets/          # uploaded training data
@@ -317,7 +317,27 @@ python ../scripts/train_set.py trump-tweet datasets/trump-tweets.txt 1000 2>&1 |
   avoid shell-escaping pitfalls with quotes/newlines in user input.
 - Generation is synchronous by default (typically a few seconds). Training is
   always async.
-- The legacy `config.json` is the source of truth for "known sets" with
-  metadata (description, prefix, embed info for any future Discord UI).
-  `/sets` also reports any extra trained checkpoints discovered on disk.
+- `data/config.json` is the source of truth for "known sets" with metadata
+  (description, prefix, embed info for any future Discord UI). It's a **flat
+  JSON array of set objects**, each with a `name` field plus its metadata:
+
+  ```json
+  [
+    {
+      "name": "trump-tweet",
+      "description": "A sample set of tweets made by Donald Trump",
+      "result": "Generates a single Trump Tweet",
+      "prefix": "<|startoftext|>",
+      "embed-title": "@realDonaldTrump:",
+      "embed-color": "03befc",
+      "embed-thumb-url": "https://...",
+      "title-dimentions": 0
+    },
+    ...
+  ]
+  ```
+
+  No separate sets-list — the array order *is* the set order, and `name` is
+  the canonical identifier. `/sets` also reports any extra trained checkpoints
+  discovered on disk that aren't in the config.
 - GPT-2 117M is small and dumb on purpose — that's the charm.
