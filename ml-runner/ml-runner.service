@@ -4,16 +4,25 @@ After=network.target
 
 [Service]
 Type=simple
-User=gptuser
-Group=gptuser
+# Run the service as your own user on a single-box dev setup. This avoids
+# permission issues reaching conda envs under your home directory. Replace
+# `brody` with your actual username (check with `id -un`):
+User=brody
+Group=brody
 WorkingDirectory=/opt/discord_gptbot/ml-runner
 Environment="ML_RUNNER_DATA_DIR=/opt/discord_gptbot/ml-runner/data"
 Environment="ML_RUNNER_PORT=7070"
-Environment="CONDA_BIN=/opt/miniconda3/bin/conda"
+# Path to the conda binary. Find yours with `which conda` (after conda init)
+# or look for ~/miniconda3/bin/conda. The path below assumes a user-level
+# miniconda install at /home/<user>/miniconda3:
+Environment="CONDA_BIN=/home/brody/miniconda3/bin/conda"
 Environment="CONDA_ENV=gpt2"
 # Gunicorn: 4 workers, bind to 0.0.0.0:7070, 600s timeout for long generations
-# gunicorn is installed in the conda env "ml-runner" (Python 3.11)
-ExecStart=/opt/miniconda3/envs/ml-runner/bin/gunicorn \
+# gunicorn lives in the conda env "ml-runner". Find the real path with:
+#   conda activate ml-runner && echo $CONDA_PREFIX
+# then use $CONDA_PREFIX/bin/gunicorn below. Conda envs created without sudo
+# typically land in ~/.conda/envs/<name>/, NOT /opt/miniconda3/envs/<name>/.
+ExecStart=/home/brody/.conda/envs/ml-runner/bin/gunicorn \
     --workers 4 \
     --bind 0.0.0.0:7070 \
     --timeout 600 \

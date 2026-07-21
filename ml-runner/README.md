@@ -36,6 +36,19 @@ service over HTTP.
 
 ## One-time host setup
 
+> **About conda env paths.** When you create a conda env without sudo and
+> can't write to `<conda_prefix>/envs/`, conda silently falls back to
+> `~/.conda/envs/<name>/`. That's where your envs almost certainly live on
+> this setup, *not* `/opt/miniconda3/envs/<name>/`. You can confirm with:
+>
+> ```bash
+> conda activate ml-runner && echo $CONDA_PREFIX
+> # → /home/<you>/.conda/envs/ml-runner
+> ```
+>
+> The systemd unit's `ExecStart` and `CONDA_BIN` need the real paths — see
+> step 5.
+
 ### 1. Install the legacy conda env (the ML runtime)
 
 ```bash
@@ -70,8 +83,8 @@ conda create -n ml-runner python=3.11 -y
 conda activate ml-runner
 pip install -r /opt/discord_gptbot/ml-runner/requirements.txt
 
-# Or, equivalently, with a one-liner after `conda create`:
-# /opt/miniconda3/envs/ml-runner/bin/pip install -r /opt/discord_gptbot/ml-runner/requirements.txt
+# Confirm where the env actually lives (you'll need this path in step 5):
+echo $CONDA_PREFIX
 ```
 
 ### 3. Make sure the data dir is writable
@@ -85,9 +98,37 @@ The first time a generation runs against a set whose base model isn't present,
 `gpt_2_simple` will download the 117M model into `data/models/117M/`. The first
 time `/train` runs, same thing.
 
-### 4. Install the systemd service
+### 4. Confirm the repo is owned by your user
+
+The service runs as your own user (see step 5), so make sure you own the repo
++ data dir:
 
 ```bash
+sudo chown -R $USER:$USER /opt/discord_gptbot
+```
+
+### 5. Configure and install the systemd service
+
+The committed `ml-runner.service` is a template — **edit it before installing**
+to point at the real paths on your box. Three things to verify/change:
+
+1. **`User=` / `Group=`** — set to your own username (the committed default is
+   `brody`; check with `id -un`). Running as your own user avoids the
+   permission maze of a dedicated service user trying to reach conda envs
+   under your home directory.
+2. **`CONDA_BIN`** — path to your conda binary. Find it with `which conda`
+   after `conda init`, or look for `~/miniconda3/bin/conda`.
+3. **`ExecStart`** — path to gunicorn in the `ml-runner` conda env. Find it
+   with `conda activate ml-runner && echo $CONDA_PREFIX` → use
+   `$CONDA_PREFIX/bin/gunicorn`. On a user-level conda install this is
+   typically `/home/<you>/.conda/envs/ml-runner/bin/gunicorn`, *not*
+   `/opt/miniconda3/envs/ml-runner/bin/gunicorn`.
+
+```bash
+# Edit the unit file in the repo to match your paths:
+nano /opt/discord_gptbot/ml-runner/ml-runner.service
+
+# Then install it:
 sudo cp /opt/discord_gptbot/ml-runner/ml-runner.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now ml-runner
@@ -96,12 +137,12 @@ sudo systemctl status ml-runner
 journalctl -u ml-runner -f
 ```
 
-Adjust paths in `ml-runner.service` if your conda install or env names differ.
-The service expects:
-- `CONDA_BIN` — path to `conda` (default `/opt/miniconda3/bin/conda`)
+Adjust the other paths in `ml-runner.service` if needed. The service expects:
+- `User` / `Group` — your username (default `brody`; see step 5)
+- `CONDA_BIN` — path to `conda` (default `/home/brody/miniconda3/bin/conda`)
 - `CONDA_ENV` — name of the legacy ML env (default `gpt2`)
 - `ExecStart` — gunicorn from the Flask conda env
-  (default `/opt/miniconda3/envs/ml-runner/bin/gunicorn`)
+  (default `/home/brody/.conda/envs/ml-runner/bin/gunicorn`)
 - `ML_RUNNER_DATA_DIR` — where `checkpoint/`, `models/`, `jobs.db` live
   (default `/opt/discord_gptbot/ml-runner/data`)
 - `ML_RUNNER_PORT` — HTTP port (default `7070`)
