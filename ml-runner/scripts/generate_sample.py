@@ -15,10 +15,17 @@ The generated text is written to stdout. Errors/diagnostics go to stderr.
 Checkpoint resolution: gpt_2_simple loads from ./checkpoint/<set>/ by default,
 so this script should be run with cwd set to the data directory.
 """
+import os
+import sys
+
+# Tell TF to grow GPU memory as needed instead of pre-allocating 100% at start.
+# Must be set before tensorflow is imported (gpt_2_simple imports it). Without
+# this, TF 1.14 grabs all GPU memory at session creation and can hang on some
+# driver/GPU combos.
+os.environ.setdefault("TF_FORCE_GPU_ALLOW_GROWTH", "true")
+
 import gpt_2_simple as gpt2
 import tensorflow as tf
-import sys
-import os
 
 
 def generate(set_name, prefix):

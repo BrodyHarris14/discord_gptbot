@@ -18,9 +18,17 @@ On first run the 117M base model is downloaded to ./models/117M/ if missing.
 This script should be run with cwd set to the data directory so that
 checkpoint/ and models/ resolve correctly.
 """
-import gpt_2_simple as gpt2
 import os
 import sys
+
+# Tell TF to grow GPU memory as needed instead of pre-allocating 100% at start.
+# This must be set before tensorflow is imported (gpt_2_simple imports it), so
+# we do it here at the very top, before importing gpt_2_simple. Without this,
+# TF 1.14 grabs all GPU memory at session creation and can hang on some
+# driver/GPU combos.
+os.environ.setdefault("TF_FORCE_GPU_ALLOW_GROWTH", "true")
+
+import gpt_2_simple as gpt2
 
 
 def main():
