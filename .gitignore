@@ -7,7 +7,6 @@ checkpoint/
 # ml-runner runtime artifacts (config.json IS tracked; the rest is generated)
 ml-runner/data/checkpoint/
 ml-runner/data/models/
-ml-runner/data/datasets/
 ml-runner/data/logs/
 ml-runner/data/jobs.db
 
