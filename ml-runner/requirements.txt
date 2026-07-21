@@ -1,0 +1,6 @@
+# ml-runner dependencies (the Flask webservice only — NOT the ML stack)
+#
+# The actual GPT-2 work happens in a separate legacy conda env (python 3.6,
+# tensorflow 1.14, gpt-2-simple). See README.md for setup.
+Flask==3.0.3
+gunicorn==22.0.0

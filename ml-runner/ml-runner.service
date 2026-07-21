@@ -1,0 +1,28 @@
+[Unit]
+Description=ml-runner: GPT-2 generation/training HTTP front-end
+After=network.target
+
+[Service]
+Type=simple
+User=gptuser
+Group=gptuser
+WorkingDirectory=/opt/ml-runner
+Environment="ML_RUNNER_DATA_DIR=/opt/ml-runner/data"
+Environment="ML_RUNNER_PORT=7070"
+Environment="CONDA_BIN=/opt/miniconda3/bin/conda"
+Environment="CONDA_ENV=gpt2"
+# Gunicorn: 4 workers, bind to 0.0.0.0:7070, 600s timeout for long generations
+ExecStart=/opt/ml-runner/.venv/bin/gunicorn \
+    --workers 4 \
+    --bind 0.0.0.0:7070 \
+    --timeout 600 \
+    app:app
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
