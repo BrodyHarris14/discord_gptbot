@@ -60,11 +60,13 @@ runtime).
 ```bash
 conda create -n gpt2 python=3.10 -y
 conda activate gpt2
-pip install torch transformers
+pip install torch transformers accelerate
 ```
 
 Torch wheels from PyPI bundle their own CUDA 12.x runtime — no `cudatoolkit`,
-`cudnn`, or `LD_LIBRARY_PATH` needed. Verify the GPU is visible:
+`cudnn`, or `LD_LIBRARY_PATH` needed. `accelerate` is a runtime dependency of
+recent `transformers` versions (the `Trainer` requires it); pip doesn't always
+pull it in automatically, so we install it explicitly. Verify the GPU is visible:
 
 ```bash
 python -c "import torch; print('CUDA available:', torch.cuda.is_available())"
