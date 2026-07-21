@@ -58,24 +58,26 @@ second env:
 # Create the Flask env
 conda create -n ml-runner python=3.11 -y
 conda activate ml-runner
-pip install -r /opt/ml-runner/requirements.txt
+pip install -r /opt/discord_gptbot/ml-runner/requirements.txt
 
 # Or, equivalently, with a one-liner after `conda create`:
-# /opt/miniconda3/envs/ml-runner/bin/pip install -r /opt/ml-runner/requirements.txt
+# /opt/miniconda3/envs/ml-runner/bin/pip install -r /opt/discord_gptbot/ml-runner/requirements.txt
 ```
 
-If you haven't already placed the repo at `/opt/ml-runner`:
+If you haven't already cloned the repo:
 
 ```bash
-sudo mkdir -p /opt/ml-runner
-sudo chown $USER:$USER /opt/ml-runner
-# Copy the repo contents (or git clone) into /opt/ml-runner
+sudo git clone <your-repo-url> /opt/discord_gptbot
+sudo chown -R $USER:$USER /opt/discord_gptbot
 ```
+
+The service runs from `/opt/discord_gptbot/ml-runner/` (the repo is cloned to
+`/opt/discord_gptbot/` so the `ml-runner/` subdir doesn't nest inside itself).
 
 ### 3. Make sure the data dir is writable
 
 ```bash
-mkdir -p /opt/ml-runner/data/{checkpoint,models,datasets,logs}
+mkdir -p /opt/discord_gptbot/ml-runner/data/{checkpoint,models,datasets,logs}
 # config.json is already in data/ from the repo; if not, copy from legacy/.
 ```
 
@@ -86,7 +88,7 @@ time `/train` runs, same thing.
 ### 4. Install the systemd service
 
 ```bash
-sudo cp /opt/ml-runner/ml-runner.service /etc/systemd/system/
+sudo cp /opt/discord_gptbot/ml-runner/ml-runner.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now ml-runner
 sudo systemctl status ml-runner
@@ -101,7 +103,7 @@ The service expects:
 - `ExecStart` — gunicorn from the Flask conda env
   (default `/opt/miniconda3/envs/ml-runner/bin/gunicorn`)
 - `ML_RUNNER_DATA_DIR` — where `checkpoint/`, `models/`, `jobs.db` live
-  (default `/opt/ml-runner/data`)
+  (default `/opt/discord_gptbot/ml-runner/data`)
 - `ML_RUNNER_PORT` — HTTP port (default `7070`)
 - `ML_RUNNER_DEFAULT_STEPS` — default training steps (default `1000`)
 
@@ -161,7 +163,7 @@ curl -X POST http://localhost:7070/train \
 ```bash
 curl -X POST http://localhost:7070/train \
      -H 'Content-Type: application/json' \
-     -d '{"set":"trump-tweet","dataset_path":"/opt/ml-runner/data/datasets/trump-tweets.txt","steps":1000}'
+     -d '{"set":"trump-tweet","dataset_path":"/opt/discord_gptbot/ml-runner/data/datasets/trump-tweets.txt","steps":1000}'
 ```
 
 Poll until `status` is `complete` or `failed`:
@@ -230,7 +232,7 @@ them (the scripts expect `cwd=data/`):
 
 ```bash
 conda activate gpt2
-cd /opt/ml-runner/data   # or wherever ML_RUNNER_DATA_DIR points
+cd /opt/discord_gptbot/ml-runner/data   # or wherever ML_RUNNER_DATA_DIR points
 ```
 
 ### generate_sample.py

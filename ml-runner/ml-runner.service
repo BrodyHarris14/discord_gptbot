@@ -6,8 +6,8 @@ After=network.target
 Type=simple
 User=gptuser
 Group=gptuser
-WorkingDirectory=/opt/ml-runner
-Environment="ML_RUNNER_DATA_DIR=/opt/ml-runner/data"
+WorkingDirectory=/opt/discord_gptbot/ml-runner
+Environment="ML_RUNNER_DATA_DIR=/opt/discord_gptbot/ml-runner/data"
 Environment="ML_RUNNER_PORT=7070"
 Environment="CONDA_BIN=/opt/miniconda3/bin/conda"
 Environment="CONDA_ENV=gpt2"

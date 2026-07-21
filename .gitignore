@@ -10,7 +10,6 @@ ml-runner/data/models/
 ml-runner/data/datasets/
 ml-runner/data/logs/
 ml-runner/data/jobs.db
-ml-runner/.venv/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
