@@ -16,7 +16,14 @@ Environment="ML_RUNNER_PORT=7070"
 # or look for ~/miniconda3/bin/conda. The path below assumes a user-level
 # miniconda install at /home/<user>/miniconda3:
 Environment="CONDA_BIN=/home/brody/miniconda3/bin/conda"
+# Name of the conda env with torch + transformers (the ML runtime).
+# On first run it auto-downloads the GPT-2 117M base model from HuggingFace
+# and caches it under HF_HOME (see below). Torch ships its own CUDA 12.x
+# runtime, so no LD_LIBRARY_PATH or system CUDA install is needed.
 Environment="CONDA_ENV=gpt2"
+# Where HuggingFace caches model downloads. Set this so the cache is
+# predictable and doesn't accidentally land under a tiny /home partition.
+Environment="HF_HOME=/opt/discord_gptbot/ml-runner/data/hf-cache"
 # Gunicorn: 4 workers, bind to 0.0.0.0:7070, 600s timeout for long generations
 # gunicorn lives in the conda env "ml-runner". Find the real path with:
 #   conda activate ml-runner && echo $CONDA_PREFIX

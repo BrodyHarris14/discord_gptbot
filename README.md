@@ -17,14 +17,9 @@ certain child-like charm — this project keeps that alive.
   Kept as a reference; not used at runtime. The `config.json` set list and the
   `generate_sample.py` / `train_set.py` scripts were ported from here into
   `ml-runner/` (with `config.json` cleaned up from a redundant dict+list shape
-  into a flat array of set objects).
-
-> **Roadmap: GPU on modern cards.** The current ML stack (TF 1.14 + CUDA 10.0)
-> only supports GPUs up to compute capability 7.5 (Turing / RTX 20xx). Newer
-> cards (RTX 30xx Ampere, RTX 40xx Ada) can't use it and fall back to CPU —
-> which is tolerable for GPT-2 117M (small model) but slower than it could be.
-> A future port to `transformers` + `torch` would restore native GPU support
-> on modern cards while keeping the same `ml-runner` HTTP API.
+  into a flat array of set objects), then rewritten to use `transformers` +
+  `torch` for modern GPU support (the legacy TF 1.14 stack only supported
+  GPUs up to RTX 20xx).
 
 ## Quick architecture
 
@@ -35,17 +30,17 @@ client (discord bot, web UI, ...)
 ml-runner  (Flask, systemd, port 7070)
    │ subprocess: `conda run -n gpt2 python scripts/...`
    ▼
-conda env "gpt2"  (python 3.6 / TF 1.14 / gpt-2-simple / CUDA)
-   └── reads/writes data/checkpoint/<set>/ and data/models/117M/
+conda env "gpt2"  (python 3.10 / torch / transformers / CUDA 12.x)
+   └── reads/writes data/checkpoint/<set>/ and data/hf-cache/
 ```
 
 The Flask layer owns nothing ML — it just shells out to the scripts in the
-legacy conda env and tracks jobs in sqlite.
+ML conda env and tracks jobs in sqlite.
 
 ## Pieces involved (generate happy path)
 
 How a single synchronous `/generate` request flows through the pieces on the
-host. The Flask process, the legacy conda env, the scripts, and the on-disk
+host. The Flask process, the ML conda env, the scripts, and the on-disk
 model/checkpoint artifacts — and how they connect.
 
 ```mermaid
@@ -59,14 +54,14 @@ flowchart TB
             DB[("db.py\nsqlite jobs.db")]
         end
 
-        subgraph Conda["conda env 'gpt2' (py3.6)"]
+        subgraph Conda["conda env 'gpt2' (py3.10)"]
             Script["scripts/generate_sample.py"]
-            GPT2["gpt_2_simple + TF 1.14 + CUDA"]
+            GPT2["torch + transformers + CUDA 12.x"]
         end
 
         subgraph Disk["data/ (on disk)"]
             Ckpt[("checkpoint/&lt;set&gt;/")]
-            Model[("models/117M/")]
+            Model[("hf-cache/")]
             Logs[("logs/&lt;job&gt;.log")]
         end
     end
@@ -77,7 +72,7 @@ flowchart TB
     JR -->|"conda run -n gpt2\npython scripts/generate_sample.py\n(prefix via stdin)"| Script
     Script --> GPT2
     GPT2 -->|"load checkpoint"| Ckpt
-    GPT2 -.->|"first run only:\ndownload 117M"| Model
+    GPT2 -.->|"first run only:\ncache GPT-2 117M\nfrom HuggingFace"| Model
     Script -->|"stdout = generated text"| JR
     JR -->|"append stderr"| Logs
     App -->|"200 text/plain"| Client

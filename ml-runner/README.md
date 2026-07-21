@@ -1,9 +1,10 @@
 # ml-runner
 
-A thin Flask front-end that fronts the legacy GPT-2 scripts
+A thin Flask front-end that fronts the GPT-2 scripts
 (`scripts/generate_sample.py`, `scripts/train_set.py`) running inside a
-separate conda env on the host. Returns generated text over HTTP — no Discord,
-no Docker, no k8s.
+separate conda env on the host. The scripts use `transformers` + `torch` for
+GPU-accelerated generation and training. Returns generated text over HTTP —
+no Discord, no Docker, no k8s.
 
 Whatever app wants to use GPT-2 (Discord bot, web UI, etc.) just talks to this
 service over HTTP.
@@ -13,15 +14,15 @@ service over HTTP.
 ```
 ┌────────────── host ──────────────────────────────────────┐
 │                                                          │
-│  conda env "gpt2"  (python 3.6 / TF 1.14 / CUDA)         │
+│  conda env "gpt2"  (python 3.10 / torch / transformers)  │
 │  └── invoked by ml-runner via `conda run -n gpt2 ...`    │
 │                                                          │
 │  ml-runner  (Flask, systemd, python 3.11)                │
 │  ├── app.py / db.py / job_runner.py                      │
 │  ├── scripts/   ← the legacy GPT-2 scripts               │
 │  └── data/                                                │
-│      ├── checkpoint/<set>/   ← trained models            │
-│      ├── models/117M/        ← base GPT-2 model          │
+│      ├── checkpoint/<set>/   ← trained models (HF format)  │
+│      ├── hf-cache/           ← HuggingFace model cache     │
 │      ├── datasets/           ← uploaded training data    │
 │      ├── logs/               ← per-job subprocess logs   │
 │      ├── jobs.db             ← sqlite job tracking       │
@@ -49,69 +50,35 @@ service over HTTP.
 > The systemd unit's `ExecStart` and `CONDA_BIN` need the real paths — see
 > step 5.
 
-### 1. Install the legacy conda env (the ML runtime)
+### 1. Install the ML conda env (the ML runtime)
+
+The ML scripts use `transformers` + `torch` (not the legacy `gpt_2_simple` +
+TF 1.14 — that stack only supported GPUs up to RTX 20xx and has been retired
+in favor of torch, which supports modern GPUs natively via its bundled CUDA
+runtime).
 
 ```bash
-conda create -n gpt2 python=3.6 -y
+conda create -n gpt2 python=3.10 -y
 conda activate gpt2
-pip install gpt_2_simple==0.7 tensorflow==1.14 discord.py==1.7.3 pillow faker googletrans
-# If you want GPU: install CUDA 10.0 + cuDNN 7.4 matching TF 1.14
+pip install torch transformers
 ```
 
-(Only `gpt_2_simple` + `tensorflow` are actually required by the scripts here;
-the others are legacy deps listed for completeness.)
+Torch wheels from PyPI bundle their own CUDA 12.x runtime — no `cudatoolkit`,
+`cudnn`, or `LD_LIBRARY_PATH` needed. Verify the GPU is visible:
 
-> **⚠️ GPU compatibility — read this if you have an RTX 30xx or 40xx card.**
-> The legacy ML stack here (TF 1.14 / `gpt_2_simple`) is pinned to **CUDA 10.0**,
-> which only has compiled GPU kernels for compute capabilities up to **7.5**
-> (Turing — RTX 20xx series). Newer cards are *not* supported:
->
-> | GPU family | Compute cap | CUDA 10.0 support |
-> |---|---|---|
-> | RTX 20xx (Turing) | 7.5 | ✅ works |
-> | RTX 30xx (Ampere) | 8.0 | ❌ no kernels |
-> | RTX 40xx (Ada) | 8.9 | ❌ no kernels |
->
-> **Symptom on an unsupported card:** TF will report it found the GPU and
-> successfully opened `libcublas.so.10.0`, then crash on the first matrix
-> multiply with `Blas GEMM launch failed : CUBLAS_STATUS_EXECUTION_FAILED`.
-> The library *loads* but can't *execute* — there are no kernels for your
-> architecture. No version of CUDA 10.x fixes this; Ada/Ampere support
-> requires CUDA 11.8+, which TF 1.14 can't use.
->
-> **Check your card:**
->
-> ```bash
-> nvidia-smi --query-gpu=name,compute_cap --format=csv
-> ```
->
-> **If compute_cap > 7.5, force CPU mode.** GPT-2 117M is small enough that
-> this is tolerable — training ~20-40 min on CPU for 1000 steps, generation
-> ~2-5 s per sample. Hide the GPU from TF by setting this as a conda env var
-> (one-time, persists across activations, and is picked up by `conda run`
-> when `ml-runner` spawns subprocesses):
->
-> ```bash
-> conda env config vars set CUDA_VISIBLE_DEVICES="" -n gpt2
-> conda deactivate && conda activate gpt2   # re-activate to pick it up
-> ```
->
-> You can also remove the now-unused CUDA packages to avoid "Cannot dlopen"
-> warnings at startup:
->
-> ```bash
-> conda remove cudatoolkit cudnn -y
-> ```
->
-> **Long-term fix:** a port to `transformers` + `torch` would restore native
-> GPU support on modern cards (torch ships CUDA 12.x binaries that support
-> Ada/Ampere). The `ml-runner` HTTP API would stay the same; only the scripts
-> under `scripts/` would change. See the "Roadmap" note in the root README.
+```bash
+python -c "import torch; print('CUDA available:', torch.cuda.is_available())"
+# → CUDA available: True  (on a GPU box)
+```
+
+On first run, `transformers` will auto-download the GPT-2 117M base model from
+HuggingFace (~500 MB, cached under `HF_HOME` — set by the systemd unit to
+`data/hf-cache/`). No manual model download needed.
 
 ### 2. Install the ml-runner Flask env
 
 The Flask webapp runs in its own conda env (Python 3.11), separate from the
-legacy `gpt2` env. Conda is already installed from step 1.
+`gpt2` ML env. Conda is already installed from step 1.
 
 First, clone the repo (the service runs from the `ml-runner/` subdir — cloning
 to `/opt/discord_gptbot/` avoids the `ml-runner/ml-runner/` nesting that would
@@ -141,8 +108,9 @@ mkdir -p /opt/discord_gptbot/ml-runner/data/{checkpoint,models,datasets,logs}
 # config.json is already in data/ from the repo; if not, copy from legacy/.
 ```
 
-The first time a generation runs against a set whose base model isn't present,
-`gpt_2_simple` will download the 117M model into `data/models/117M/`. The first
+The first time a generation runs against a set whose base model isn't cached,
+`transformers` will auto-download the GPT-2 117M base model into
+`data/hf-cache/` (configured via `HF_HOME` in the systemd unit). The first
 time `/train` runs, same thing.
 
 ### 4. Confirm the repo is owned by your user
@@ -190,7 +158,7 @@ Adjust the other paths in `ml-runner.service` if needed. The service expects:
 - `CONDA_ENV` — name of the legacy ML env (default `gpt2`)
 - `ExecStart` — gunicorn from the Flask conda env
   (default `/home/brody/.conda/envs/ml-runner/bin/gunicorn`)
-- `ML_RUNNER_DATA_DIR` — where `checkpoint/`, `models/`, `jobs.db` live
+- `ML_RUNNER_DATA_DIR` — where `checkpoint/`, `hf-cache/`, `jobs.db` live
   (default `/opt/discord_gptbot/ml-runner/data`)
 - `ML_RUNNER_PORT` — HTTP port (default `7070`)
 - `ML_RUNNER_DEFAULT_STEPS` — default training steps (default `1000`)
@@ -284,12 +252,12 @@ ml-runner/
 ├── requirements.txt       # Flask only (the ML stack lives in the conda env)
 ├── ml-runner.service      # systemd unit
 ├── scripts/
-│   ├── generate_sample.py # ported from legacy/
-│   └── train_set.py       # ported from legacy/
+    ├── generate_sample.py # torch + transformers
+    │   └── train_set.py       # torch + transformers
 └── data/
     ├── config.json        # sets: flat array of set objects (seeded from legacy/)
-    ├── checkpoint/        # trained models (created on first train)
-    ├── models/            # base GPT-2 117M (downloaded on first use)
+    ├── checkpoint/        # trained models in HuggingFace format
+    ├── hf-cache/          # HuggingFace model cache (GPT-2 117M base model)
     ├── datasets/          # uploaded training data
     ├── logs/              # per-job subprocess logs
     └── jobs.db            # sqlite (created on first run)
@@ -366,9 +334,11 @@ python ../scripts/train_set.py <run_name> <file_name> <steps>
   an absolute path.
 - `<steps>` — integer, number of training steps.
 
-On the first run, the 117M base model is downloaded to `models/117M/` if
-missing. Training logs stream to stdout/stderr; on success the script emits a
-single sample from the freshly trained model so you can confirm it worked.
+On the first run, `transformers` auto-downloads the GPT-2 117M base model
+(`"gpt2"`) from HuggingFace (~500 MB, cached under `HF_HOME` or
+`~/.cache/huggingface/`). Training logs stream to stdout/stderr; on success
+the script emits a single sample from the freshly trained model so you can
+confirm it worked.
 
 Examples:
 
@@ -386,17 +356,19 @@ python ../scripts/train_set.py trump-tweet datasets/trump-tweets.txt 1000 2>&1 |
 ### Common debugging tips
 
 - **"Couldn't find that set" / load errors** → check that
-  `data/checkpoint/<set>/` exists and contains the trained checkpoint files
-  (`model-*.data`, `model-*.index`, `model-*.meta`, `checkpoint`).
-- **First run is slow / hangs** → `gpt_2_simple` is downloading the 117M base
-  model into `data/models/117M/`. This is a one-time ~500 MB download.
-- **GPU not being used** → confirm `nvidia-smi` shows the process, and that
-  your TF 1.14 install was the GPU build (`tensorflow-gpu==1.14`) with matching
-  CUDA 10.0 + cuDNN 7.4.
+  `data/checkpoint/<set>/` exists and contains the HuggingFace checkpoint
+  files (`config.json`, `pytorch_model.bin`, `tokenizer.json`, etc.).
+- **First run is slow** → `transformers` is downloading the 117M base model
+  from HuggingFace. This is a one-time ~500 MB download, cached under
+  `data/hf-cache/` (or `~/.cache/huggingface/` if `HF_HOME` isn't set).
+- **GPU not being used** → confirm `torch.cuda.is_available()` returns `True`
+  inside the `gpt2` env. If not, check `nvidia-smi` works and that your torch
+  install is the CUDA build (not the CPU-only build — on PyPI the default
+  wheel is CUDA-enabled on Linux x86_64).
 - **Reproducing an ml-runner job's exact invocation** → check the job's log at
   `data/logs/<job_id>.log` (or `GET /jobs/<id>/log`); it captures the
   subprocess's stderr. The exact command ml-runner runs is:
-  `conda run -n gpt2 --no-capture-output python scripts/generate_sample.py <set>`
+  `conda run -n gpt2 --no-capture-output python /abs/path/to/scripts/generate_sample.py <set>`
   with the prefix sent to stdin and `cwd=data/`.
 
 ## Notes
