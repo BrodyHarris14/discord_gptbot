@@ -41,7 +41,7 @@ host. The Flask process, the legacy conda env, the scripts, and the on-disk
 model/checkpoint artifacts — and how they connect.
 
 ```mermaid
-flowchart LR
+flowchart TB
     Client["Client\n(discord bot / web UI / curl)"]
 
     subgraph Host["System76 host (Ubuntu + microk8s)"]

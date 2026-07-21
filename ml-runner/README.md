@@ -51,8 +51,18 @@ the others are legacy deps listed for completeness.)
 ### 2. Install the ml-runner Flask env
 
 The Flask webapp runs in its own conda env (Python 3.11), separate from the
-legacy `gpt2` env. Conda is already installed from step 1, so just create a
-second env:
+legacy `gpt2` env. Conda is already installed from step 1.
+
+First, clone the repo (the service runs from the `ml-runner/` subdir — cloning
+to `/opt/discord_gptbot/` avoids the `ml-runner/ml-runner/` nesting that would
+happen if you cloned directly to `/opt/ml-runner`):
+
+```bash
+sudo git clone <your-repo-url> /opt/discord_gptbot
+sudo chown -R $USER:$USER /opt/discord_gptbot
+```
+
+Then create the Flask env and install its deps:
 
 ```bash
 # Create the Flask env
@@ -63,16 +73,6 @@ pip install -r /opt/discord_gptbot/ml-runner/requirements.txt
 # Or, equivalently, with a one-liner after `conda create`:
 # /opt/miniconda3/envs/ml-runner/bin/pip install -r /opt/discord_gptbot/ml-runner/requirements.txt
 ```
-
-If you haven't already cloned the repo:
-
-```bash
-sudo git clone <your-repo-url> /opt/discord_gptbot
-sudo chown -R $USER:$USER /opt/discord_gptbot
-```
-
-The service runs from `/opt/discord_gptbot/ml-runner/` (the repo is cloned to
-`/opt/discord_gptbot/` so the `ml-runner/` subdir doesn't nest inside itself).
 
 ### 3. Make sure the data dir is writable
 
