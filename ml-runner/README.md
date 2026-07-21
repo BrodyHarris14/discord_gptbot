@@ -61,6 +61,53 @@ pip install gpt_2_simple==0.7 tensorflow==1.14 discord.py==1.7.3 pillow faker go
 (Only `gpt_2_simple` + `tensorflow` are actually required by the scripts here;
 the others are legacy deps listed for completeness.)
 
+> **⚠️ GPU compatibility — read this if you have an RTX 30xx or 40xx card.**
+> The legacy ML stack here (TF 1.14 / `gpt_2_simple`) is pinned to **CUDA 10.0**,
+> which only has compiled GPU kernels for compute capabilities up to **7.5**
+> (Turing — RTX 20xx series). Newer cards are *not* supported:
+>
+> | GPU family | Compute cap | CUDA 10.0 support |
+> |---|---|---|
+> | RTX 20xx (Turing) | 7.5 | ✅ works |
+> | RTX 30xx (Ampere) | 8.0 | ❌ no kernels |
+> | RTX 40xx (Ada) | 8.9 | ❌ no kernels |
+>
+> **Symptom on an unsupported card:** TF will report it found the GPU and
+> successfully opened `libcublas.so.10.0`, then crash on the first matrix
+> multiply with `Blas GEMM launch failed : CUBLAS_STATUS_EXECUTION_FAILED`.
+> The library *loads* but can't *execute* — there are no kernels for your
+> architecture. No version of CUDA 10.x fixes this; Ada/Ampere support
+> requires CUDA 11.8+, which TF 1.14 can't use.
+>
+> **Check your card:**
+>
+> ```bash
+> nvidia-smi --query-gpu=name,compute_cap --format=csv
+> ```
+>
+> **If compute_cap > 7.5, force CPU mode.** GPT-2 117M is small enough that
+> this is tolerable — training ~20-40 min on CPU for 1000 steps, generation
+> ~2-5 s per sample. Hide the GPU from TF by setting this as a conda env var
+> (one-time, persists across activations, and is picked up by `conda run`
+> when `ml-runner` spawns subprocesses):
+>
+> ```bash
+> conda env config vars set CUDA_VISIBLE_DEVICES="" -n gpt2
+> conda deactivate && conda activate gpt2   # re-activate to pick it up
+> ```
+>
+> You can also remove the now-unused CUDA packages to avoid "Cannot dlopen"
+> warnings at startup:
+>
+> ```bash
+> conda remove cudatoolkit cudnn -y
+> ```
+>
+> **Long-term fix:** a port to `transformers` + `torch` would restore native
+> GPU support on modern cards (torch ships CUDA 12.x binaries that support
+> Ada/Ampere). The `ml-runner` HTTP API would stay the same; only the scripts
+> under `scripts/` would change. See the "Roadmap" note in the root README.
+
 ### 2. Install the ml-runner Flask env
 
 The Flask webapp runs in its own conda env (Python 3.11), separate from the

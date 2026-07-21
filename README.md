@@ -19,6 +19,13 @@ certain child-like charm — this project keeps that alive.
   `ml-runner/` (with `config.json` cleaned up from a redundant dict+list shape
   into a flat array of set objects).
 
+> **Roadmap: GPU on modern cards.** The current ML stack (TF 1.14 + CUDA 10.0)
+> only supports GPUs up to compute capability 7.5 (Turing / RTX 20xx). Newer
+> cards (RTX 30xx Ampere, RTX 40xx Ada) can't use it and fall back to CPU —
+> which is tolerable for GPT-2 117M (small model) but slower than it could be.
+> A future port to `transformers` + `torch` would restore native GPU support
+> on modern cards while keeping the same `ml-runner` HTTP API.
+
 ## Quick architecture
 
 ```

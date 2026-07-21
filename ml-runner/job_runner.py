@@ -32,6 +32,21 @@ def _conda_env():
     return os.environ.get("CONDA_ENV", "gpt2")
 
 
+def _scripts_dir():
+    """
+    Absolute path to the scripts/ directory (sibling of this file). Using an
+    absolute path lets us run the scripts with cwd=data/ (so checkpoints and
+    models resolve) without relying on a fragile 'scripts/...' relative path
+    that breaks when cwd != the ml-runner root.
+    """
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts")
+
+
+def _script(name):
+    """Absolute path to a script in scripts/."""
+    return os.path.join(_scripts_dir(), name)
+
+
 def _log_path(data_dir, job_id):
     logs_dir = os.path.join(data_dir, "logs")
     os.makedirs(logs_dir, exist_ok=True)
@@ -45,7 +60,7 @@ def _tail(path, lines=40):
         return "".join(data[-lines:])
     except Exception:
         return "(log unavailable)"
-
+_script("generate_sample.py")
 
 # -------------------------------------------------------------------
 # Async paths
@@ -90,7 +105,7 @@ def start_train(data_dir, job_id, set_name, dataset_path, steps):
     log_path = _log_path(data_dir, job_id)
     cmd = [
         _conda_base(), "run", "-n", _conda_env(), "--no-capture-output",
-        "python", "scripts/train_set.py", set_name, dataset_path, str(steps),
+        "python", _script("train_set.py"), set_name, dataset_path, str(steps),
     ]
     log_file = open(log_path, "w")
     proc = subprocess.Popen(
@@ -172,7 +187,7 @@ def run_generate_sync(data_dir, set_name, prefix, log_path):
     """
     cmd = [
         _conda_base(), "run", "-n", _conda_env(), "--no-capture-output",
-        "python", "scripts/generate_sample.py", set_name,
+        "python", _script("generate_sample.py"), set_name,
     ]
     log_file = open(log_path, "w")
     try:
