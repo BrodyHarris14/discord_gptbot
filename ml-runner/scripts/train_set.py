@@ -40,10 +40,10 @@ class LineBlockDataset(Dataset):
     `transformers.TextDataset` with a ~15-line equivalent that doesn't depend
     on removed APIs.
 
-    Each item is a tensor of shape (block_size,) — input_ids for one block.
-    The Trainer's default collator stacks them into a batch; labels are
-    created by shifting input_ids (the model does this internally for
-    GPT2LMHeadModel).
+    Each item is a dict {"input_ids": tensor, "labels": tensor} where labels
+    == input_ids (causal LM — GPT2LMHeadModel shifts internally to compute the
+    next-token loss). The Trainer's default collator stacks these into a
+    batch and pads with the tokenizer's pad_token_id.
     """
 
     def __init__(self, tokenizer, file_path, block_size=128):
@@ -62,7 +62,9 @@ class LineBlockDataset(Dataset):
         return len(self.blocks)
 
     def __getitem__(self, idx):
-        return self.blocks[idx]
+        block = self.blocks[idx]
+        # labels = input_ids for causal LM; the model shifts internally.
+        return {"input_ids": block, "labels": block}
 
 
 def main():
