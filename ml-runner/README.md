@@ -50,13 +50,26 @@ the others are legacy deps listed for completeness.)
 
 ### 2. Install the ml-runner Flask env
 
+The Flask webapp runs in its own conda env (Python 3.11), separate from the
+legacy `gpt2` env. Conda is already installed from step 1, so just create a
+second env:
+
+```bash
+# Create the Flask env
+conda create -n ml-runner python=3.11 -y
+conda activate ml-runner
+pip install -r /opt/ml-runner/requirements.txt
+
+# Or, equivalently, with a one-liner after `conda create`:
+# /opt/miniconda3/envs/ml-runner/bin/pip install -r /opt/ml-runner/requirements.txt
+```
+
+If you haven't already placed the repo at `/opt/ml-runner`:
+
 ```bash
 sudo mkdir -p /opt/ml-runner
 sudo chown $USER:$USER /opt/ml-runner
 # Copy the repo contents (or git clone) into /opt/ml-runner
-
-python3.11 -m venv /opt/ml-runner/.venv
-/opt/ml-runner/.venv/bin/pip install -r /opt/ml-runner/requirements.txt
 ```
 
 ### 3. Make sure the data dir is writable
@@ -81,10 +94,12 @@ sudo systemctl status ml-runner
 journalctl -u ml-runner -f
 ```
 
-Adjust paths in `ml-runner.service` if your conda / venv live elsewhere. The
-service expects:
+Adjust paths in `ml-runner.service` if your conda install or env names differ.
+The service expects:
 - `CONDA_BIN` — path to `conda` (default `/opt/miniconda3/bin/conda`)
-- `CONDA_ENV` — name of the legacy env (default `gpt2`)
+- `CONDA_ENV` — name of the legacy ML env (default `gpt2`)
+- `ExecStart` — gunicorn from the Flask conda env
+  (default `/opt/miniconda3/envs/ml-runner/bin/gunicorn`)
 - `ML_RUNNER_DATA_DIR` — where `checkpoint/`, `models/`, `jobs.db` live
   (default `/opt/ml-runner/data`)
 - `ML_RUNNER_PORT` — HTTP port (default `7070`)
@@ -194,9 +209,7 @@ ml-runner/
 
 ```bash
 cd ml-runner
-python3.11 -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
+conda activate ml-runner          # has flask + gunicorn
 export ML_RUNNER_DATA_DIR="$(pwd)/data"
 export CONDA_BIN="$(which conda)"
 export CONDA_ENV=gpt2

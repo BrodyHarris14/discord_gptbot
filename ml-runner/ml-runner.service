@@ -12,7 +12,8 @@ Environment="ML_RUNNER_PORT=7070"
 Environment="CONDA_BIN=/opt/miniconda3/bin/conda"
 Environment="CONDA_ENV=gpt2"
 # Gunicorn: 4 workers, bind to 0.0.0.0:7070, 600s timeout for long generations
-ExecStart=/opt/ml-runner/.venv/bin/gunicorn \
+# gunicorn is installed in the conda env "ml-runner" (Python 3.11)
+ExecStart=/opt/miniconda3/envs/ml-runner/bin/gunicorn \
     --workers 4 \
     --bind 0.0.0.0:7070 \
     --timeout 600 \
