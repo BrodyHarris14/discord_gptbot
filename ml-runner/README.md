@@ -71,6 +71,26 @@ python -c "import torch; print('CUDA available:', torch.cuda.is_available())"
 # → CUDA available: True  (on a GPU box)
 ```
 
+> **⚠️ If `torch.cuda.is_available()` returns `False`** with a warning like
+> "The NVIDIA driver on your system is too old (found version 12040)" — the
+> default `pip install torch` pulls a wheel compiled against the *latest* CUDA
+> (e.g. 12.8), which requires a newer driver than yours. Install a torch build
+> matching your driver instead:
+>
+> ```bash
+> # Check your driver's max CUDA version:
+> nvidia-smi   # look for "CUDA Version: 12.x" in the header
+>
+> # Install a torch wheel compiled against an older CUDA your driver supports.
+> # cu121 works with driver CUDA ≥ 12.1; cu118 works with driver CUDA ≥ 11.8.
+> pip install torch --index-url https://download.pytorch.org/whl/cu121
+> # or, for older drivers:
+> # pip install torch --index-url https://download.pytorch.org/whl/cu118
+> ```
+>
+> The rule: **driver CUDA version ≥ wheel CUDA version**. Your `nvidia-smi`
+> header shows the max CUDA your driver supports.
+
 On first run, `transformers` will auto-download the GPT-2 117M base model from
 HuggingFace (~500 MB, cached under `HF_HOME` — set by the systemd unit to
 `data/hf-cache/`). No manual model download needed.
@@ -386,12 +406,7 @@ python ../scripts/train_set.py trump-tweet datasets/trump-tweets.txt 1000 2>&1 |
     {
       "name": "trump-tweet",
       "description": "A sample set of tweets made by Donald Trump",
-      "result": "Generates a single Trump Tweet",
       "prefix": "<|startoftext|>",
-      "embed-title": "@realDonaldTrump:",
-      "embed-color": "03befc",
-      "embed-thumb-url": "https://...",
-      "title-dimentions": 0
     },
     ...
   ]

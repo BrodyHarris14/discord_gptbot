@@ -2,9 +2,8 @@
 Finetune GPT-2 against a dataset, producing a checkpoint that generate_sample.py
 can load.
 
-Rewritten to use `transformers` + `torch` instead of `gpt_2_simple` + TF 1.14.
-This enables GPU support on modern cards (RTX 30xx / 40xx) via torch's bundled
-CUDA 12.x runtime.
+Uses `transformers` + `torch` for GPU-accelerated training on modern cards
+(RTX 30xx / 40xx) via torch's bundled CUDA 12.x runtime.
 
 Usage:
     python train_set.py <run_name> <file_name> <steps>
@@ -25,14 +24,45 @@ import os
 import sys
 
 import torch
+from torch.utils.data import Dataset
 from transformers import (
     GPT2LMHeadModel,
     GPT2TokenizerFast,
-    TextDataset,
-    DataCollatorForLanguageModeling,
     Trainer,
     TrainingArguments,
 )
+
+
+class LineBlockDataset(Dataset):
+    """
+    A simple causal-LM dataset: reads a text file, tokenizes it, and splits
+    into fixed-length `block_size` token blocks. This replaces the deprecated
+    `transformers.TextDataset` with a ~15-line equivalent that doesn't depend
+    on removed APIs.
+
+    Each item is a tensor of shape (block_size,) — input_ids for one block.
+    The Trainer's default collator stacks them into a batch; labels are
+    created by shifting input_ids (the model does this internally for
+    GPT2LMHeadModel).
+    """
+
+    def __init__(self, tokenizer, file_path, block_size=128):
+        with open(file_path, "r", encoding="utf-8") as f:
+            text = f.read()
+        tokens = tokenizer.encode(text)
+        # Drop the trailing partial block so every example is exactly block_size.
+        n_blocks = len(tokens) // block_size
+        tokens = tokens[: n_blocks * block_size]
+        self.blocks = [
+            torch.tensor(tokens[i : i + block_size], dtype=torch.long)
+            for i in range(0, len(tokens), block_size)
+        ]
+
+    def __len__(self):
+        return len(self.blocks)
+
+    def __getitem__(self, idx):
+        return self.blocks[idx]
 
 
 def main():
@@ -61,7 +91,8 @@ def main():
     sys.stderr.write("Using device: {}\n".format(device))
 
     # Load the base GPT-2 117M model + tokenizer from HuggingFace.
-    # On first run this downloads ~500 MB and caches it under ~/.cache/huggingface/.
+    # On first run this downloads ~500 MB and caches it under HF_HOME
+    # (set by the systemd unit) or ~/.cache/huggingface/.
     sys.stderr.write("Loading base GPT-2 117M model...\n")
     model_name = "gpt2"  # 117M
     tokenizer = GPT2TokenizerFast.from_pretrained(model_name)
@@ -71,16 +102,11 @@ def main():
     # GPT-2 has no pad token by default; use EOS as the pad token.
     tokenizer.pad_token = tokenizer.eos_token
 
-    # Build the dataset + data collator for language modeling.
-    # TextDataset reads a text file and chunks it into block_size-token blocks.
-    train_dataset = TextDataset(
-        tokenizer=tokenizer,
-        file_path=file_name,
-        block_size=128,
-    )
-    data_collator = DataCollatorForLanguageModeling(
-        tokenizer=tokenizer,
-        mlm=False,  # causal LM, not masked LM
+    # Build the dataset: tokenize the file and split into 128-token blocks.
+    sys.stderr.write("Loading dataset...\n")
+    train_dataset = LineBlockDataset(tokenizer, file_name, block_size=128)
+    sys.stderr.write(
+        "Dataset has {} blocks of 128 tokens\n".format(len(train_dataset))
     )
 
     # TrainingArguments: max_steps keeps the same semantics as
@@ -98,13 +124,13 @@ def main():
         fp16=(device == "cuda"),   # mixed precision on GPU
     )
 
-    # Train.
+    # Train. GPT2LMHeadModel computes loss internally when given input_ids
+    # without explicit labels (it shifts them itself).
     sys.stderr.write("Training for {} steps...\n".format(steps))
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
-        data_collator=data_collator,
     )
     trainer.train()
 
@@ -131,8 +157,8 @@ def main():
     text = tokenizer.decode(output[0], skip_special_tokens=False)
     if "<|startoftext|>" in text:
         text = text.split("<|startoftext|>", 1)[1]
-    if "<|endoftext|>" in text:
-        text = text.split("<|endoftext|>", 1)[0]
+    if "​" in text:
+        text = text.split("​", 1)[0]
     sys.stdout.write(text)
 
 
