@@ -35,10 +35,13 @@ from transformers import (
 
 class LineBlockDataset(Dataset):
     """
-    A simple causal-LM dataset: reads a text file, tokenizes it, and splits
-    into fixed-length `block_size` token blocks. This replaces the deprecated
-    `transformers.TextDataset` with a ~15-line equivalent that doesn't depend
-    on removed APIs.
+    A simple causal-LM dataset: reads a text file, tokenizes it line by line
+    (streaming, to avoid loading the entire file into memory), and splits
+    into fixed-length `block_size` token blocks.
+
+    Memory-efficient: tokenizes line-by-line and accumulates into a single
+    preallocated tensor, rather than holding the full text + a list of
+    millions of small tensors in memory at once.
 
     Each item is a dict {"input_ids": tensor, "labels": tensor} where labels
     == input_ids (causal LM — GPT2LMHeadModel shifts internally to compute the
@@ -47,16 +50,40 @@ class LineBlockDataset(Dataset):
     """
 
     def __init__(self, tokenizer, file_path, block_size=128):
+        # First pass: count total tokens (line-by-line) so we can preallocate
+        # the exact-size buffer in one shot.
+        sys.stderr.write("Tokenizing dataset (pass 1: counting)...\n")
+        total_tokens = 0
         with open(file_path, "r", encoding="utf-8") as f:
-            text = f.read()
-        tokens = tokenizer.encode(text)
-        # Drop the trailing partial block so every example is exactly block_size.
-        n_blocks = len(tokens) // block_size
-        tokens = tokens[: n_blocks * block_size]
-        self.blocks = [
-            torch.tensor(tokens[i : i + block_size], dtype=torch.long)
-            for i in range(0, len(tokens), block_size)
-        ]
+            for line in f:
+                total_tokens += len(tokenizer.encode(line))
+
+        n_blocks = total_tokens // block_size
+        sys.stderr.write(
+            "Tokenizing dataset (pass 2: filling {} blocks of {} tokens)...\n"
+            .format(n_blocks, block_size)
+        )
+
+        # Preallocate one contiguous tensor for all blocks — far cheaper
+        # than a list of millions of small Python tensors.
+        self.blocks = torch.zeros((n_blocks, block_size), dtype=torch.long)
+
+        # Second pass: tokenize line-by-line and fill the buffer.
+        block_idx = 0
+        pos = 0
+        with open(file_path, "r", encoding="utf-8") as f:
+            for line in f:
+                ids = tokenizer.encode(line)
+                for tok in ids:
+                    if block_idx >= n_blocks:
+                        break
+                    self.blocks[block_idx, pos] = tok
+                    pos += 1
+                    if pos >= block_size:
+                        pos = 0
+                        block_idx += 1
+                if block_idx >= n_blocks:
+                    break
 
     def __len__(self):
         return len(self.blocks)
