@@ -6,5 +6,13 @@
     "embed_title": "@realDonaldTrump:",
     "embed_color": "03befc",
     "embed_image": "https://pbs.twimg.com/profile_images/874276197357596672/kUuht00m_400x400.jpg"
+  },
+  {
+    "description": "A sample set of fun facts from Wikipedia",
+    "prefix": "<|startoftext|>",
+    "name": "fun-fact",
+    "embed_title": "Here's a fun fact:",
+    "embed_color": "eba434",
+    "embed_image": "https://cdn-icons-png.flaticon.com/512/5331/5331979.png"
   }
 ]
