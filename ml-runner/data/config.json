@@ -14,5 +14,13 @@
     "embed_title": "Here's a fun fact:",
     "embed_color": "eba434",
     "embed_image": "https://cdn-icons-png.flaticon.com/512/5331/5331979.png"
+  },
+  {
+    "description": "Yelp reviews with star ratings",
+    "prefix": "<|startoftext|>",
+    "name": "yelp-review",
+    "embed_title": "Yelp Review:",
+    "embed_color": "ff0000",
+    "embed_image": "https://s3-media0.fl.yelpcdn.com/assets/srv0/yelp_large_assets/b2b/en_US/brand/logo_full_color.svg"
   }
 ]
