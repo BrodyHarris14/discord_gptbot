@@ -156,8 +156,17 @@ def generate():
                 "error": "generate_sample.py exited with code {}".format(rc),
                 "log_tail": tail,
             }), 500
-        # Return plain text for easy consumption; clients wanting JSON can use async.
-        return Response(text, mimetype="text/plain")
+        # Return JSON with the generated text + embed metadata from config.
+        # Embed fields (embed_title, embed_color, embed_image) are optional;
+        # missing fields are omitted so the client can fall back to defaults.
+        configs, _ = _load_config()
+        meta = configs.get(set_name, {})
+        resp = {"text": text}
+        for field in ("embed_title", "embed_color", "embed_image"):
+            val = meta.get(field)
+            if val:
+                resp[field] = val
+        return jsonify(resp)
 
     # Async: create a job row, launch the subprocess, return the id.
     job_id = db.create_job(
