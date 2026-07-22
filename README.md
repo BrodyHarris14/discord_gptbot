@@ -98,7 +98,7 @@ flowchart TD
     QSet -->|"yes"| Gen["POST /generate\n{set, prefix}"]
     Gen --> Sync{"async=true?"}
     Sync -->|"no (default)"| Block["Flask blocks while\nconda subprocess runs"]
-    Block --> Text["200 text/plain\n→ generated text"]
+    Block --> Text["200 application/json\n→ {text, embed_title?,\n   embed_color?, embed_image?}"]
     Sync -->|"yes"| Queued["202 {job_id}"]
     Queued --> PollGen{"GET /jobs/&lt;id&gt;\nstatus == complete?"}
     PollGen -->|"running / queued"| WaitG["wait"] --> PollGen
@@ -116,7 +116,7 @@ flowchart TB
     end
 
     subgraph Gen["Generate"]
-        G["POST /generate  (also GET)\nbody: {set, prefix?, async?}\n→ 200 text/plain  (sync, default)\n→ 202 {job_id}     (async=true)"]
+        G["POST /generate  (also GET)\nbody: {set, prefix?, async?}\n→ 200 application/json  (sync, default)\n  {text, embed_title?, embed_color?, embed_image?}\n→ 202 {job_id}     (async=true)"]
     end
 
     subgraph Train["Train"]
@@ -140,7 +140,7 @@ flowchart TB
 |---|---|---|---|
 | `/health` | GET | — | `{status, conda_env, data_dir, config_present, ...}` |
 | `/sets` | GET | — | `{sets:[{name, description, prefix, trained}]}` |
-| `/generate` | GET/POST | `set`*, `prefix`?, `async`? | sync → `200 text/plain`; async → `202 {job_id}` |
+| `/generate` | GET/POST | `set`*, `prefix`?, `async`? | sync → `200 application/json` `{text, embed_title?, embed_color?, embed_image?}`; async → `202 {job_id}` |
 | `/train` | POST | `set`*, `steps`?, `dataset` (file) *or* `dataset_path` | `202 {job_id}` |
 | `/jobs` | GET | `type`?, `status`?, `limit`? | `{jobs:[row,...]}` |
 | `/jobs/<id>` | GET | — | job row `{status, result?, error?, log_path, ...}` |
