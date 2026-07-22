@@ -2,6 +2,9 @@
   {
     "description": "A sample set of tweets made by Donald Trump",
     "prefix": "<|startoftext|>",
-    "name": "trump-tweet"
+    "name": "trump-tweet",
+    "embed_title": "@realDonaldTrump:",
+    "embed_color": "03befc",
+    "embed_image": "https://pbs.twimg.com/profile_images/874276197357596672/kUuht00m_400x400.jpg"
   }
 ]
