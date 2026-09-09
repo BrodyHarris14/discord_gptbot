@@ -30,5 +30,13 @@
     "embed_title": "Coming Soon:",
     "embed_color": "7b2cbf",
     "embed_image": "https://cdn-icons-png.flaticon.com/512/2799/2799444.png"
+  },
+  {
+    "description": "Sarcastic and normal news headlines",
+    "prefix": "<|startoftext|>",
+    "name": "headline",
+    "embed_title": "Today's News:",
+    "embed_color": "7b2cbf",
+    "embed_image": "https://pics.freeicons.io/uploads/icons/png/19439217481557740364-512.png"
   }
 ]
