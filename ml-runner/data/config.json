@@ -42,7 +42,7 @@
   {
     "description": "Dogshit news articles",
     "prefix": "<|startoftext|>Headline:",
-    "name": "news-article",
+    "name": "news",
     "embed_title": "Today's News:",
     "embed_color": "aa1b34",
     "embed_image": "https://pics.freeicons.io/uploads/icons/png/19439217481557740364-512.png"
