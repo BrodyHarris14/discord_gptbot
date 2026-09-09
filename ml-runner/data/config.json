@@ -46,5 +46,13 @@
     "embed_title": "Today's News:",
     "embed_color": "aa1b34",
     "embed_image": "https://pics.freeicons.io/uploads/icons/png/19439217481557740364-512.png"
+  },
+  {
+    "description": "Amazon product reviews",
+    "prefix": "<|startoftext|>",
+    "name": "amazon-review",
+    "embed_title": "Amazon Review:",
+    "embed_color": "ff9900",
+    "embed_image": "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg"
   }
 ]
